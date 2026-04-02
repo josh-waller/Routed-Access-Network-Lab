@@ -1,97 +1,71 @@
-# Routed Access-Layer Enterprise Network
+# Routed Access-Layer Campus Network
 
-![Cisco](https://img.shields.io/badge/Cisco-Packet_Tracer-1BA0D7?logo=cisco&logoColor=white)
-![Design](https://img.shields.io/badge/Design-Cisco_Routed_Access-orange)
+![Cisco Packet Tracer](https://img.shields.io/badge/Cisco-Packet_Tracer-1BA0D7?logo=cisco&logoColor=white)
+![Cisco Design](https://img.shields.io/badge/Reference-Cisco_Routed_Access_Guide-0076CE)
 ![Status](https://img.shields.io/badge/Status-Complete-brightgreen)
 
-Designed and implemented a routed access-layer enterprise network using Cisco Layer 3 switching and OSPF, demonstrating simplified convergence, improved fault isolation, and scalable routing within a campus topology. Based on the [Cisco Routed Access Design Guide](https://www.cisco.com/c/en/us/td/docs/solutions/Enterprise/Campus/routed-ex.html).
-
-## Topology
+Routed access-layer campus network using L3 switching and multi-area OSPF — replacing traditional L2 access–distribution trunks with routed inter-switch links for simplified convergence and fault isolation. Based on the [Cisco Routed Access Design Guide](https://www.cisco.com/c/en/us/td/docs/solutions/Enterprise/Campus/routed-ex.html).
 
 ![Network Topology](RA_PKT.png)
 
-## Technologies and Protocols
+---
 
-| Category | Technologies |
-|----------|-------------|
-| **Routing** | OSPF (multi-area with stub areas), Route Summarization, Loopback Interfaces |
-| **Switching** | VLANs, SVIs (access-layer only), Rapid PVST+ |
-| **Redundancy** | HSRP (server VLANs only) |
-| **Services** | DHCP Relay (`ip helper-address`) |
-| **Design** | Routed Access Model, L3 inter-switch links (no trunking) |
+## Architecture Overview
 
-## Key Skills Demonstrated
+| Layer | Components | Role |
+|-------|-----------|------|
+| **Core** | L3 switches | OSPF Area 0 backbone, inter-area routing |
+| **Distribution** | L3 switches | Area border routers, route summarization toward core |
+| **Access** | L3 switches | SVIs per VLAN, local routing, DHCP relay, OSPF stub areas |
+| **Server** | Infrastructure/App VLANs | HSRP for gateway redundancy (only tier requiring FHRP) |
 
-- Routed access-layer design eliminating spanning tree between switches
-- Multi-area OSPF with stub/totally stubby area configuration
-- Route summarization to reduce LSDB entries and SPF calculations
-- Layer-3 inter-switch links replacing traditional trunk-based designs
-- HSRP limited to server VLANs only (no gateway redundancy needed at access)
-- Fault isolation — failures localised without broadcast storm propagation
-- Full bandwidth utilisation with all uplinks actively forwarding
+### Why Routed Access?
+
+| Traditional L2 Access | Routed Access |
+|----------------------|---------------|
+| STP required between access and distribution | STP only used for host-facing segments |
+| Blocked redundant links | All uplinks actively forward traffic |
+| HSRP/VRRP needed at every distribution pair | FHRP only needed for server VLANs |
+| Trunk management overhead | No inter-switch trunks (L3 point-to-point) |
+| Broadcast storms can propagate across tiers | Faults contained to local subnet |
+| Extended STP convergence times | Sub-second OSPF convergence |
+
+**Trade-offs:** Higher upfront cost (L3-capable access switches), more complex initial design, and L2 adjacency not available across routed segments.
+
+## Addressing and OSPF Design
+
+| Component | Addressing |
+|-----------|-----------|
+| Access VLANs | Unique /24 per VLAN (e.g., VLAN 10: 10.10.10.0/24, VLAN 20: 10.10.20.0/24) |
+| Server VLANs | VLAN 100 (Infrastructure), VLAN 200 (Applications) — HSRP-protected |
+| Loopbacks | Summarization anchors (10.10.0.0/16, 10.20.0.0/16) |
+| DHCP | Relay via `ip helper-address` under access SVIs |
+
+**OSPF Area Design:**
+
+| Area | Assignment | Type |
+|------|-----------|------|
+| 0 | Core-facing interfaces | Backbone |
+| 10 | Access-layer networks (site 1) | Stub |
+| 20 | Access-layer networks (site 2) | Totally stubby |
+
+Route summarization applied at distribution toward the core to reduce LSDB size and SPF computation overhead. Loopback interfaces configured as passive.
 
 ---
 
-## Background
+## Configuration Summary
 
-Traditional campus designs rely on Layer 2 switching between the access and distribution tiers, which introduces challenges such as spanning tree complexity, blocked links, and extended recovery times.
+**Routing** — OSPF with per-area stub configuration. Inter-switch links are routed (no switchport); trunks retained only for server VLAN distribution where HSRP is required.
 
-The routed access model removes Layer 2 dependencies by enabling Layer 3 routing on access switches. Each access layer VLAN resides in a unique subnet, limiting the scope of broadcast domains, and OSPF is used for internal routing.
+**Redundancy** — HSRP on VLAN 100 and 200 with priority and preemption. No FHRP needed at the access layer since the local L3 switch is the default gateway.
 
----
+**Spanning Tree** — Rapid PVST+ on access switches for host-facing redundancy only. No STP dependency between network tiers.
 
-## Advantages
+**SVIs** — Configured on access switches (not distribution), enabling local routing decisions and faster convergence.
 
-- Eliminates spanning tree between switches (only used for host connectivity).
-- No need for HSRP or VRRP between switches except at the server network.
-- Simplified multicast operation and no trunking between access and distribution.
-- No management VLAN required, reducing administrative overhead.
-- Improved load balancing with all uplinks forwarding packets.
-- Faster failure detection and convergence due to local routing.
-- Reduced OSPF SPF calculations thanks to route summarization toward the core.
-- Fault containment — failures are localised, preventing broadcast storms.
+## Validation
 
----
-
-## Disadvantages
-
-- More complex to design and initially implement.
-- Layer 3 switches cost more than Layer 2 switches.
-- Applications requiring Layer 2 adjacency cannot operate across routed segments.
-
----
-
-## Network Design Summary
-
-- **VLANs/Subnets:** Each VLAN assigns a unique /24 subnet (e.g., VLAN 10: 10.10.10.0/24, VLAN 20: 10.10.20.0/24).
-- **SVIs:** Configured only on access switches to enable local routing and fast convergence.
-- **Server VLANs:** VLAN 100 (Infrastructure) and VLAN 200 (Applications) configured with HSRP for redundancy.
-- **OSPF Areas:**
-    - Core-facing interfaces -> Area 0
-    - Access-layer networks -> Local stub or stub-no-summary areas (e.g., Areas 10 and 20)
-- **Loopbacks:** Configured for summarization (e.g., 10.10.0.0/16, 10.20.0.0/16).
-- **No Trunking:** Inter-switch links run Layer 3 only; trunks preserved only for server VLAN distribution.
-- **DHCP Relay:** Implemented using `ip helper-address` under SVI 10.
-
----
-
-## Key Configuration Elements
-
-- VLAN creation using `vlan` and `name` commands.
-- SVIs assigned IPs for each subnet (`int vlan X` -> `ip address` ... `no shutdown`).
-- HSRP configured on VLAN 100 and 200 with priority, preemption, and standby IPs.
-- OSPF enabled with area assignments, `stub` area configuration, and `passive-interface loopback`.
-- Summarization planned for routes advertised toward the core to reduce LSDB entries.
-- Rapid PVST used on access switches for host-level redundancy.
-
----
-
-## Results and Observations
-
-The network demonstrated rapid convergence and consistent routing performance. Failure scenarios showed localised impact without loss of connectivity across unrelated areas. All uplinks remained actively forwarding traffic, validating full use of available bandwidth. Broadcast storms and spanning-tree instabilities were eliminated.
-
----
-
-## Synopsis
-
-The routed access-layer design provides a robust, scalable alternative to traditional Layer 2 campus architectures. Although planning and deployment require greater effort and more advanced hardware, the resulting network is highly resilient, easier to manage, and capable of faster convergence. This design suits modern enterprise networks prioritising speed, reliability, and manageability.
+- Simulated link failures showed fault containment to the affected subnet with no propagation to adjacent areas.
+- All uplinks remained active and forwarding during steady-state operation.
+- OSPF reconvergence completed within expected timers on simulated topology changes.
+- No broadcast storms or STP instability observed during failure scenarios.
