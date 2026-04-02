@@ -6,7 +6,7 @@
 
 Routed access-layer campus network using L3 switching and multi-area OSPF — replacing traditional L2 access–distribution trunks with routed inter-switch links for simplified convergence and fault isolation. Based on the [Cisco Routed Access Design Guide](https://www.cisco.com/c/en/us/td/docs/solutions/Enterprise/Campus/routed-ex.html).
 
-![Network Topology](RA_PKT.png)
+![Network Topology](topology.png)
 
 ---
 
